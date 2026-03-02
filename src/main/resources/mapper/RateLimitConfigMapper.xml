@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.ratelimiter.mapper.RateLimitConfigMapper">
+
+    <select id="findAll" resultType="com.example.ratelimiter.entity.RateLimitConfig">
+        SELECT id, limit_key, type, limit_count, period, capacity,
+               tokens_per_second, message, enabled, description,
+               created_at, updated_at
+        FROM rate_limit_config
+    </select>
+
+    <select id="findById" resultType="com.example.ratelimiter.entity.RateLimitConfig">
+        SELECT id, limit_key, type, limit_count, period, capacity,
+               tokens_per_second, message, enabled, description,
+               created_at, updated_at
+        FROM rate_limit_config
+        WHERE id = #{id}
+    </select>
+
+    <select id="findByLimitKey" resultType="com.example.ratelimiter.entity.RateLimitConfig">
+        SELECT id, limit_key, type, limit_count, period, capacity,
+               tokens_per_second, message, enabled, description,
+               created_at, updated_at
+        FROM rate_limit_config
+        WHERE limit_key = #{limitKey}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO rate_limit_config (limit_key, type, limit_count, period, capacity,
+                                       tokens_per_second, message, enabled, description)
+        VALUES (#{limitKey}, #{type}, #{limitCount}, #{period}, #{capacity},
+                #{tokensPerSecond}, #{message}, #{enabled}, #{description})
+    </insert>
+
+    <update id="update">
+        UPDATE rate_limit_config
+        SET type              = #{type},
+            limit_count       = #{limitCount},
+            period            = #{period},
+            capacity          = #{capacity},
+            tokens_per_second = #{tokensPerSecond},
+            message           = #{message},
+            enabled           = #{enabled},
+            description       = #{description}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM rate_limit_config WHERE id = #{id}
+    </delete>
+
+    <select id="existsByLimitKey" resultType="int">
+        SELECT COUNT(1) FROM rate_limit_config WHERE limit_key = #{limitKey}
+    </select>
+
+</mapper>

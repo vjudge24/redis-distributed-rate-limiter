@@ -1,0 +1,97 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: redis-distributed-rate-limiter
+
+  # MySQL数据源配置
+  datasource:
+    url: jdbc:mysql://localhost:3306/rate_limiter?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: kkk89447006
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # 自动执行建表SQL
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+  # Redis配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      database: 0
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+      timeout: 3000ms
+
+# 限流配置
+rate-limiter:
+  enabled: true
+  # 全局限流配置（可选）
+  global:
+    enabled: false
+    limit: 100
+    period: 60
+  # Redis key前缀
+  key-prefix: "rate_limit:"
+  # 是否记录限流日志
+  log-enabled: true
+
+# MyBatis配置
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.example.ratelimiter: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Actuator配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+---
+# Redis Cluster 配置（通过 --spring.profiles.active=cluster 激活）
+spring:
+  config:
+    activate:
+      on-profile: cluster
+  data:
+    redis:
+      host:
+      port:
+      cluster:
+        nodes:
+          - 127.0.0.1:7001
+          - 127.0.0.1:7002
+          - 127.0.0.1:7003
+          - 127.0.0.1:7004
+          - 127.0.0.1:7005
+          - 127.0.0.1:7006
+        max-redirects: 3
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+          max-wait: 3000ms

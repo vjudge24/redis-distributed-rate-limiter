@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redis 分布式限流系统 - 配置管理</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #f0f2f5;
+            --card: #ffffff;
+            --primary: #1677ff;
+            --primary-hover: #4096ff;
+            --danger: #ff4d4f;
+            --danger-hover: #ff7875;
+            --success: #52c41a;
+            --text: #1f1f1f;
+            --text-secondary: #8c8c8c;
+            --border: #d9d9d9;
+            --border-light: #f0f0f0;
+            --tag-blue-bg: #e6f4ff;
+            --tag-blue: #1677ff;
+            --tag-green-bg: #f6ffed;
+            --tag-green: #52c41a;
+            --tag-orange-bg: #fff7e6;
+            --tag-orange: #fa8c16;
+            --tag-purple-bg: #f9f0ff;
+            --tag-purple: #722ed1;
+            --shadow: 0 1px 2px 0 rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px 0 rgba(0,0,0,0.02);
+            --shadow-md: 0 6px 16px 0 rgba(0,0,0,0.08), 0 3px 6px -4px rgba(0,0,0,0.12), 0 9px 28px 8px rgba(0,0,0,0.05);
+            --radius: 8px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        /* Header */
+        .header {
+            background: var(--card);
+            border-bottom: 1px solid var(--border-light);
+            padding: 0 32px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Layout */
+        .container {
+            max-width: 1200px;
+            margin: 24px auto;
+            padding: 0 24px;
+        }
+
+        /* Stats */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .stat-card .label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        /* Card */
+        .card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .card-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .card-body {
+            padding: 0;
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead th {
+            background: #fafafa;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text);
+            border-bottom: 1px solid var(--border-light);
+            white-space: nowrap;
+        }
+
+        tbody td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-light);
+            font-size: 14px;
+            vertical-align: middle;
+        }
+
+        tbody tr:hover {
+            background: #fafafa;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .empty-row td {
+            text-align: center;
+            padding: 48px 16px;
+            color: var(--text-secondary);
+        }
+
+        /* Tags */
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 20px;
+        }
+
+        .tag-blue { background: var(--tag-blue-bg); color: var(--tag-blue); }
+        .tag-green { background: var(--tag-green-bg); color: var(--tag-green); }
+        .tag-orange { background: var(--tag-orange-bg); color: var(--tag-orange); }
+        .tag-purple { background: var(--tag-purple-bg); color: var(--tag-purple); }
+
+        .tag-enabled {
+            background: var(--tag-green-bg);
+            color: var(--tag-green);
+        }
+
+        .tag-disabled {
+            background: #fff1f0;
+            color: var(--danger);
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 400;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--text);
+            transition: all 0.2s;
+            line-height: 22px;
+            white-space: nowrap;
+        }
+
+        .btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        .btn-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            border-color: var(--primary-hover);
+            color: #fff;
+        }
+
+        .btn-danger {
+            border-color: var(--danger);
+            color: var(--danger);
+            background: #fff;
+        }
+
+        .btn-danger:hover {
+            background: var(--danger);
+            border-color: var(--danger);
+            color: #fff;
+        }
+
+        .btn-link {
+            border: none;
+            background: none;
+            color: var(--primary);
+            padding: 4px 8px;
+        }
+
+        .btn-link:hover { color: var(--primary-hover); }
+
+        .btn-link-danger {
+            border: none;
+            background: none;
+            color: var(--danger);
+            padding: 4px 8px;
+        }
+
+        .btn-link-danger:hover { color: var(--danger-hover); }
+
+        .btn-sm { padding: 2px 8px; font-size: 13px; }
+
+        .action-btns {
+            display: flex;
+            gap: 4px;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 1000;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 100px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            width: 560px;
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+            animation: modalIn 0.2s ease-out;
+        }
+
+        @keyframes modalIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .modal-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            padding: 4px;
+            line-height: 1;
+        }
+
+        .modal-close:hover { color: var(--text); }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border-light);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+
+        .form-group label .required {
+            color: var(--danger);
+            margin-left: 2px;
+        }
+
+        .form-group .hint {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            line-height: 22px;
+            color: var(--text);
+            transition: border-color 0.2s;
+            background: #fff;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
+        }
+
+        textarea { resize: vertical; min-height: 60px; }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            box-shadow: var(--shadow-md);
+            animation: toastIn 0.3s ease-out;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 280px;
+        }
+
+        .toast-success { background: #f6ffed; border: 1px solid #b7eb8f; color: #389e0d; }
+        .toast-error { background: #fff2f0; border: 1px solid #ffccc7; color: #cf1322; }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(100%); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .key-cell {
+            font-family: "SF Mono", "Monaco", "Menlo", "Consolas", monospace;
+            font-size: 13px;
+            color: #d4380d;
+            background: #fff2e8;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .params-cell {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .params-cell strong {
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        /* Confirm dialog */
+        .confirm-body {
+            padding: 32px 24px;
+            text-align: center;
+        }
+
+        .confirm-body p {
+            font-size: 15px;
+            margin-bottom: 8px;
+        }
+
+        .confirm-body .sub {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .stats { grid-template-columns: repeat(2, 1fr); }
+            .form-row { grid-template-columns: 1fr; }
+            .modal { width: calc(100vw - 32px); }
+            .container { padding: 0 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Redis 分布式限流系统</h1>
+    <div class="header-actions">
+        <button class="btn" onclick="refreshCache()">刷新缓存</button>
+        <button class="btn btn-primary" onclick="openCreateModal()">+ 新建规则</button>
+    </div>
+</div>
+
+<div class="container">
+    <div class="stats" id="stats">
+        <div class="stat-card">
+            <div class="label">规则总数</div>
+            <div class="value" id="stat-total">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">已启用</div>
+            <div class="value" id="stat-enabled" style="color:var(--success)">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">已禁用</div>
+            <div class="value" id="stat-disabled" style="color:var(--text-secondary)">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">算法类型数</div>
+            <div class="value" id="stat-types">0</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>限流规则列表</h2>
+            <button class="btn btn-sm" onclick="loadConfigs()">刷新</button>
+        </div>
+        <div class="card-body">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>限流 Key</th>
+                        <th>算法</th>
+                        <th>参数</th>
+                        <th>提示信息</th>
+                        <th>状态</th>
+                        <th>更新时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="config-table">
+                    <tr class="empty-row"><td colspan="8">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal-overlay" id="formModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="modalTitle">新建限流规则</h3>
+            <button class="modal-close" onclick="closeModal('formModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="editId">
+
+            <div class="form-group">
+                <label>限流 Key <span class="required">*</span></label>
+                <input type="text" id="f-limitKey" placeholder="如: test:fixed-window 或 api:user:#{#userId}">
+                <div class="hint">对应 @RateLimit 注解的 key 值（SpEL 解析前的原始值）</div>
+            </div>
+
+            <div class="form-group">
+                <label>算法类型 <span class="required">*</span></label>
+                <select id="f-type" onchange="onTypeChange()">
+                    <option value="FIXED_WINDOW">FIXED_WINDOW - 固定窗口</option>
+                    <option value="SLIDING_WINDOW">SLIDING_WINDOW - 滑动窗口</option>
+                    <option value="TOKEN_BUCKET">TOKEN_BUCKET - 令牌桶</option>
+                    <option value="LEAKY_BUCKET">LEAKY_BUCKET - 漏桶</option>
+                </select>
+            </div>
+
+            <div id="window-params">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>最大请求数</label>
+                        <input type="number" id="f-limitCount" placeholder="如: 10" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>时间窗口（秒）</label>
+                        <input type="number" id="f-period" placeholder="如: 60" min="1">
+                    </div>
+                </div>
+            </div>
+
+            <div id="bucket-params" style="display:none">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>桶容量</label>
+                        <input type="number" id="f-capacity" placeholder="如: 10" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>速率（个/秒）</label>
+                        <input type="number" id="f-tokensPerSecond" placeholder="如: 2.0" min="0.1" step="0.1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>限流提示信息</label>
+                <input type="text" id="f-message" placeholder="如: 请求过于频繁，请稍后再试">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>状态 <span class="required">*</span></label>
+                    <select id="f-enabled">
+                        <option value="true">启用</option>
+                        <option value="false">禁用</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>描述</label>
+                    <input type="text" id="f-description" placeholder="规则描述（可选）">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal('formModal')">取消</button>
+            <button class="btn btn-primary" onclick="submitForm()">确定</button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="confirmModal">
+    <div class="modal" style="width:400px">
+        <div class="modal-header">
+            <h3>确认删除</h3>
+            <button class="modal-close" onclick="closeModal('confirmModal')">&times;</button>
+        </div>
+        <div class="confirm-body">
+            <p>确定要删除此限流规则吗？</p>
+            <p class="sub" id="confirmKey"></p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal('confirmModal')">取消</button>
+            <button class="btn btn-danger" id="confirmDeleteBtn">删除</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+const API = '/api/rate-limit-configs';
+
+const TYPE_MAP = {
+    FIXED_WINDOW:   { label: '固定窗口', cls: 'tag-blue' },
+    SLIDING_WINDOW: { label: '滑动窗口', cls: 'tag-green' },
+    TOKEN_BUCKET:   { label: '令牌桶',   cls: 'tag-orange' },
+    LEAKY_BUCKET:   { label: '漏桶',     cls: 'tag-purple' }
+};
+
+let allConfigs = [];
+
+// Load configs
+async function loadConfigs() {
+    try {
+        const res = await fetch(API);
+        const json = await res.json();
+        if (json.success) {
+            allConfigs = json.data || [];
+            renderTable(allConfigs);
+            renderStats(allConfigs);
+        }
+    } catch (e) {
+        toast('加载配置失败: ' + e.message, 'error');
+    }
+}
+
+function renderStats(list) {
+    document.getElementById('stat-total').textContent = list.length;
+    document.getElementById('stat-enabled').textContent = list.filter(c => c.enabled).length;
+    document.getElementById('stat-disabled').textContent = list.filter(c => !c.enabled).length;
+    const types = new Set(list.map(c => c.type));
+    document.getElementById('stat-types').textContent = types.size;
+}
+
+function renderTable(list) {
+    const tbody = document.getElementById('config-table');
+    if (!list.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="8">暂无限流规则，点击右上角「新建规则」添加</td></tr>';
+        return;
+    }
+    tbody.innerHTML = list.map(c => {
+        const t = TYPE_MAP[c.type] || { label: c.type, cls: 'tag-blue' };
+        const params = formatParams(c);
+        const time = c.updatedAt ? c.updatedAt.replace('T', ' ') : '-';
+        return `<tr>
+            <td>${c.id}</td>
+            <td><span class="key-cell">${esc(c.limitKey)}</span></td>
+            <td><span class="tag ${t.cls}">${t.label}</span></td>
+            <td class="params-cell">${params}</td>
+            <td>${esc(c.message || '-')}</td>
+            <td><span class="tag ${c.enabled ? 'tag-enabled' : 'tag-disabled'}">${c.enabled ? '启用' : '禁用'}</span></td>
+            <td style="font-size:13px;color:var(--text-secondary)">${time}</td>
+            <td>
+                <div class="action-btns">
+                    <button class="btn btn-link btn-sm" onclick="openEditModal(${c.id})">编辑</button>
+                    <button class="btn btn-link-danger btn-sm" onclick="confirmDelete(${c.id}, '${esc(c.limitKey)}')">删除</button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function formatParams(c) {
+    if (c.type === 'TOKEN_BUCKET' || c.type === 'LEAKY_BUCKET') {
+        const cap = c.capacity != null ? c.capacity : '-';
+        const rate = c.tokensPerSecond != null ? c.tokensPerSecond : '-';
+        return `<strong>${cap}</strong> 容量 / <strong>${rate}</strong> 个/秒`;
+    }
+    const limit = c.limitCount != null ? c.limitCount : '-';
+    const period = c.period != null ? c.period : '-';
+    return `<strong>${limit}</strong> 次 / <strong>${period}</strong> 秒`;
+}
+
+function esc(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// Type toggle
+function onTypeChange() {
+    const type = document.getElementById('f-type').value;
+    const isBucket = type === 'TOKEN_BUCKET' || type === 'LEAKY_BUCKET';
+    document.getElementById('window-params').style.display = isBucket ? 'none' : '';
+    document.getElementById('bucket-params').style.display = isBucket ? '' : 'none';
+}
+
+// Modal
+function openCreateModal() {
+    document.getElementById('modalTitle').textContent = '新建限流规则';
+    document.getElementById('editId').value = '';
+    document.getElementById('f-limitKey').value = '';
+    document.getElementById('f-limitKey').disabled = false;
+    document.getElementById('f-type').value = 'FIXED_WINDOW';
+    document.getElementById('f-limitCount').value = '';
+    document.getElementById('f-period').value = '';
+    document.getElementById('f-capacity').value = '';
+    document.getElementById('f-tokensPerSecond').value = '';
+    document.getElementById('f-message').value = '';
+    document.getElementById('f-enabled').value = 'true';
+    document.getElementById('f-description').value = '';
+    onTypeChange();
+    openModal('formModal');
+}
+
+function openEditModal(id) {
+    const c = allConfigs.find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('modalTitle').textContent = '编辑限流规则';
+    document.getElementById('editId').value = c.id;
+    document.getElementById('f-limitKey').value = c.limitKey;
+    document.getElementById('f-limitKey').disabled = true;
+    document.getElementById('f-type').value = c.type;
+    document.getElementById('f-limitCount').value = c.limitCount ?? '';
+    document.getElementById('f-period').value = c.period ?? '';
+    document.getElementById('f-capacity').value = c.capacity ?? '';
+    document.getElementById('f-tokensPerSecond').value = c.tokensPerSecond ?? '';
+    document.getElementById('f-message').value = c.message ?? '';
+    document.getElementById('f-enabled').value = c.enabled ? 'true' : 'false';
+    document.getElementById('f-description').value = c.description ?? '';
+    onTypeChange();
+    openModal('formModal');
+}
+
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+// Submit
+async function submitForm() {
+    const editId = document.getElementById('editId').value;
+    const type = document.getElementById('f-type').value;
+    const isBucket = type === 'TOKEN_BUCKET' || type === 'LEAKY_BUCKET';
+
+    const body = {
+        limitKey: document.getElementById('f-limitKey').value.trim(),
+        type: type,
+        limitCount: !isBucket ? toNum(document.getElementById('f-limitCount').value) : null,
+        period: !isBucket ? toNum(document.getElementById('f-period').value) : null,
+        capacity: isBucket ? toNum(document.getElementById('f-capacity').value) : null,
+        tokensPerSecond: isBucket ? toFloat(document.getElementById('f-tokensPerSecond').value) : null,
+        message: document.getElementById('f-message').value.trim() || null,
+        enabled: document.getElementById('f-enabled').value === 'true',
+        description: document.getElementById('f-description').value.trim() || null
+    };
+
+    if (!body.limitKey) return toast('请填写限流 Key', 'error');
+    if (!body.type) return toast('请选择算法类型', 'error');
+
+    try {
+        const url = editId ? `${API}/${editId}` : API;
+        const method = editId ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const json = await res.json();
+        if (json.success) {
+            toast(editId ? '更新成功' : '创建成功', 'success');
+            closeModal('formModal');
+            loadConfigs();
+        } else {
+            toast(json.message || '操作失败', 'error');
+        }
+    } catch (e) {
+        toast('请求失败: ' + e.message, 'error');
+    }
+}
+
+function toNum(v) { const n = parseInt(v); return isNaN(n) ? null : n; }
+function toFloat(v) { const n = parseFloat(v); return isNaN(n) ? null : n; }
+
+// Delete
+function confirmDelete(id, key) {
+    document.getElementById('confirmKey').textContent = 'Key: ' + key;
+    document.getElementById('confirmDeleteBtn').onclick = () => doDelete(id);
+    openModal('confirmModal');
+}
+
+async function doDelete(id) {
+    try {
+        const res = await fetch(`${API}/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (json.success) {
+            toast('删除成功', 'success');
+            closeModal('confirmModal');
+            loadConfigs();
+        } else {
+            toast(json.message || '删除失败', 'error');
+        }
+    } catch (e) {
+        toast('请求失败: ' + e.message, 'error');
+    }
+}
+
+// Refresh cache
+async function refreshCache() {
+    try {
+        const res = await fetch(`${API}/refresh-cache`, { method: 'POST' });
+        const json = await res.json();
+        if (json.success) {
+            toast('缓存刷新成功', 'success');
+        } else {
+            toast(json.message || '刷新失败', 'error');
+        }
+    } catch (e) {
+        toast('请求失败: ' + e.message, 'error');
+    }
+}
+
+// Toast
+function toast(msg, type = 'success') {
+    const container = document.getElementById('toasts');
+    const el = document.createElement('div');
+    el.className = `toast toast-${type}`;
+    el.textContent = msg;
+    container.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+        if (e.target === overlay) closeModal(overlay.id);
+    });
+});
+
+// ESC to close
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.active').forEach(m => closeModal(m.id));
+    }
+});
+
+// Init
+loadConfigs();
+</script>
+</body>
+</html>
