@@ -195,6 +195,36 @@ public class TestController {
     }
 
     /**
+     * 热key分片限流测试
+     *
+     * 限制：每30秒最多32次请求，分16个分片
+     * 每个分片限额 = 32 / 16 = 2
+     *
+     * 测试方法：
+     * 快速请求，观察分片key在Redis集群中的分布
+     */
+    @GetMapping("/sharded")
+    @RateLimit(
+            key = "test:sharded",
+            limit = 32,
+            period = 30,
+            type = RateLimitType.SLIDING_WINDOW,
+            message = "分片限流：每30秒最多32次请求（16分片）",
+            shardCount = 16
+    )
+    public Result<Map<String, Object>> testSharded() {
+        logger.info("分片限流测试 - 请求通过");
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("algorithm", "滑动窗口（16分片）");
+        data.put("description", "每30秒最多32次请求，分散到16个分片");
+        data.put("timestamp", LocalDateTime.now());
+        data.put("tip", "分片key分散到不同Redis集群节点，解决热key问题");
+
+        return Result.success("请求成功", data);
+    }
+
+    /**
      * 无限流接口（用于对比）
      */
     @GetMapping("/no-limit")

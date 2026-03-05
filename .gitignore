@@ -38,3 +38,4 @@ Thumbs.db
 # Spring Boot
 application-*.yml
 application-*.properties
+dump.rdb

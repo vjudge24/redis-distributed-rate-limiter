@@ -24,6 +24,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import jakarta.servlet.http.HttpServletRequest;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 限流AOP切面
@@ -45,7 +46,8 @@ public class RateLimitAspect {
 
     private record EffectiveRateLimitConfig(
             RateLimitType type, long limit, long period,
-            long capacity, double tokensPerSecond, String message
+            long capacity, double tokensPerSecond, String message,
+            int shardCount
     ) {}
 
     public RateLimitAspect(RateLimiterService rateLimiterService,
@@ -68,18 +70,36 @@ public class RateLimitAspect {
         // 构建实际的限流key（含SpEL解析和参数处理）
         String resolvedKey = buildKey(point, rateLimit);
 
-        logger.debug("限流检查开始 - key: {}, type: {}, config-source: {}",
-                resolvedKey, effectiveConfig.type(),
+        // 热key分片：将key分散到多个分片，每个分片承担一部分限额
+        int shardCount = effectiveConfig.shardCount();
+        EffectiveRateLimitConfig actualConfig = effectiveConfig;
+        if (shardCount > 1) {
+            int shard = ThreadLocalRandom.current().nextInt(shardCount);
+            resolvedKey = resolvedKey + ":shard:" + shard;
+            // 每个分片承担 总限额/分片数 的配额
+            actualConfig = new EffectiveRateLimitConfig(
+                    effectiveConfig.type(),
+                    Math.max(1, effectiveConfig.limit() / shardCount),
+                    effectiveConfig.period(),
+                    Math.max(1, effectiveConfig.capacity() / shardCount),
+                    effectiveConfig.tokensPerSecond() / shardCount,
+                    effectiveConfig.message(),
+                    shardCount
+            );
+        }
+
+        logger.debug("限流检查开始 - key: {}, type: {}, shardCount: {}, config-source: {}",
+                resolvedKey, actualConfig.type(), shardCount,
                 rateLimitConfigService.getActiveConfig(rawKey) != null ? "DB" : "annotation");
 
         // 执行限流检查
-        boolean allowed = checkRateLimitWithConfig(resolvedKey, effectiveConfig);
+        boolean allowed = checkRateLimitWithConfig(resolvedKey, actualConfig);
 
         if (!allowed) {
-            logger.warn("请求被限流 - key: {}, type: {}", resolvedKey, effectiveConfig.type());
+            logger.warn("请求被限流 - key: {}, type: {}", resolvedKey, actualConfig.type());
 
             throw new RateLimitException(
-                    effectiveConfig.message(),
+                    actualConfig.message(),
                     resolvedKey,
                     effectiveConfig.limit(),
                     effectiveConfig.period()
@@ -118,12 +138,14 @@ public class RateLimitAspect {
             double tokensPerSecond = dbConfig.getTokensPerSecond() != null ? dbConfig.getTokensPerSecond() : rateLimit.tokensPerSecond();
             String message = dbConfig.getMessage() != null ? dbConfig.getMessage() : rateLimit.message();
 
-            return new EffectiveRateLimitConfig(type, limit, period, capacity, tokensPerSecond, message);
+            return new EffectiveRateLimitConfig(type, limit, period, capacity, tokensPerSecond, message,
+                    rateLimit.shardCount());
         }
 
         return new EffectiveRateLimitConfig(
                 rateLimit.type(), rateLimit.limit(), rateLimit.period(),
-                rateLimit.capacity(), rateLimit.tokensPerSecond(), rateLimit.message()
+                rateLimit.capacity(), rateLimit.tokensPerSecond(), rateLimit.message(),
+                rateLimit.shardCount()
         );
     }
 

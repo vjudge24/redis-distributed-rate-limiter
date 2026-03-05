@@ -95,4 +95,17 @@ public @interface RateLimit {
      * @return 桶的最大容量
      */
     long capacity() default 10;
+
+    /**
+     * 热key分片数量
+     *
+     * 用于解决Redis集群模式下的热key问题。
+     * 将单个限流key拆分为多个分片key，分散到不同的Redis节点。
+     * 每个分片的限额 = 总限额 / 分片数。
+     *
+     * 设为1表示不分片（默认）。建议设为集群节点数的4-8倍（如3节点集群设为16）。
+     *
+     * @return 分片数量
+     */
+    int shardCount() default 1;
 }

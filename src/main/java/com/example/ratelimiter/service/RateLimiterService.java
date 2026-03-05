@@ -74,4 +74,12 @@ public interface RateLimiterService {
      * @param key 限流key
      */
     void reset(String key);
+
+    /**
+     * 重置限流计数（支持分片）
+     *
+     * @param key        限流key
+     * @param shardCount 分片数量
+     */
+    void reset(String key, int shardCount);
 }

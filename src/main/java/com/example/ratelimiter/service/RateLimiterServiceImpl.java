@@ -329,17 +329,28 @@ public class RateLimiterServiceImpl implements RateLimiterService {
 
     @Override
     public void reset(String key) {
+        reset(key, 1);
+    }
+
+    @Override
+    public void reset(String key, int shardCount) {
         try {
-            String hashTagKey = wrapWithHashTag(key);
-            List<String> keysToDelete = Arrays.asList(
-                    hashTagKey,
-                    hashTagKey + ":tokens",
-                    hashTagKey + ":last_time",
-                    hashTagKey + ":water",
-                    hashTagKey + ":last_leak_time"
-            );
+            List<String> keysToDelete = new java.util.ArrayList<>();
+            // 收集所有分片的key（shardCount=1时只处理原始key）
+            for (int i = 0; i < shardCount; i++) {
+                String shardKey = shardCount > 1 ? key + ":shard:" + i : key;
+                String hashTagKey = wrapWithHashTag(shardKey);
+                keysToDelete.addAll(Arrays.asList(
+                        hashTagKey,
+                        hashTagKey + ":tokens",
+                        hashTagKey + ":last_time",
+                        hashTagKey + ":water",
+                        hashTagKey + ":last_leak_time"
+                ));
+            }
             redisTemplate.delete(keysToDelete);
-            logger.info("重置限流计数 - key: {}, 已删除 {} 个相关key", key, keysToDelete.size());
+            logger.info("重置限流计数 - key: {}, shardCount: {}, 已删除 {} 个相关key",
+                    key, shardCount, keysToDelete.size());
         } catch (Exception e) {
             logger.error("重置限流计数失败: {}", e.getMessage(), e);
         }
