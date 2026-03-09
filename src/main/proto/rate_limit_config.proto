@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package ratelimit;
+
+option java_multiple_files = true;
+option java_package = "com.example.ratelimiter.grpc.proto";
+option java_outer_classname = "ConfigCenterProto";
+
+// 配置中心 gRPC 服务
+service RateLimitConfigCenter {
+
+  // 客户端订阅配置变更通知（Server-Streaming 长连接）
+  // 当配置发生变更时，Server 推送变更事件，客户端收到后主动拉取
+  rpc Watch(WatchRequest) returns (stream ConfigChangeEvent);
+
+  // 客户端主动拉取全量配置
+  rpc FetchAllConfigs(FetchRequest) returns (FetchResponse);
+}
+
+message WatchRequest {
+  // 客户端实例标识，用于 Server 端管理连接
+  string instance_id = 1;
+}
+
+message ConfigChangeEvent {
+  // 变更类型
+  ChangeType change_type = 1;
+  // 变更的 key（可选，通知用，客户端收到后拉全量）
+  string limit_key = 2;
+  // 事件时间戳
+  int64 timestamp = 3;
+}
+
+enum ChangeType {
+  UPDATED = 0;
+  DELETED = 1;
+  FULL_REFRESH = 2;
+}
+
+message FetchRequest {
+  string instance_id = 1;
+}
+
+message FetchResponse {
+  repeated RateLimitConfigProto configs = 1;
+}
+
+message RateLimitConfigProto {
+  int64 id = 1;
+  string limit_key = 2;
+  string type = 3;
+  int64 limit_count = 4;
+  int64 period = 5;
+  int64 capacity = 6;
+  double tokens_per_second = 7;
+  string message = 8;
+  bool enabled = 9;
+  string description = 10;
+}
